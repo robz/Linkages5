@@ -1,0 +1,12 @@
+* {
+  margin: 0;
+}
+
+#options {
+  position: absolute;
+}
+
+#options * {
+  display: block;
+  margin: 4px;
+}

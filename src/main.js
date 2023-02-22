@@ -1,0 +1,168 @@
+/* @flow */
+
+"use strict";
+
+import type { Point } from "./drawing";
+
+import { getCanvas, continuallyResize, getAxis, getMousePos } from "./drawing";
+import { drawStuff } from "./drawing_linkage";
+import { calcLinkage, calcPath } from "./linkage";
+import { buildPointMap, getNearestPoint, movePoint } from "./move_point";
+
+function getClickablePointkeys(paused: boolean) {
+  const keys = [
+    ["x0", "y0"],
+    ["x3", "y3"],
+  ];
+  if (paused) {
+    keys.push(
+      ["x1", "y1"],
+      ["x2", "y2"],
+      ["x4", "y4"],
+      ["x5", "y5"],
+      ["x6", "y6"]
+    );
+  }
+  return keys;
+}
+
+// linkage
+const linkage = {
+  structures: [
+    {
+      type: "rotary",
+      input: { lr: "l0", x0r: "x0", y0r: "y0" },
+      output: { x1r: "x1", y1r: "y1" },
+    },
+    {
+      type: "hinge",
+      input: {
+        l0r: "l1",
+        l1r: "l2",
+        x0r: "x1",
+        y0r: "y1",
+        x1r: "x3",
+        y1r: "y3",
+      },
+      output: { x2r: "x2", y2r: "y2" },
+    },
+    {
+      type: "hinge",
+      input: {
+        l0r: "l3",
+        l1r: "l4",
+        x0r: "x2",
+        y0r: "y2",
+        x1r: "x1",
+        y1r: "y1",
+      },
+      output: { x2r: "x4", y2r: "y4" },
+    },
+  ],
+  initialVars: {
+    l0: 0.25,
+    l1: 0.5,
+    l2: 0.5,
+    l3: 0.8,
+    l4: 0.5,
+    x0: -0.4,
+    y0: 0.0,
+    x3: 0.3,
+    y3: 0.0,
+  },
+};
+
+// sideeffectful/stateful stuff
+const canvas = getCanvas("canvas");
+const ctx = canvas.getContext("2d");
+
+continuallyResize(ctx, canvas);
+const pointThreshold = ctx.lineWidth * 2;
+const [smallAxis, bigAxis] = getAxis(canvas);
+
+const pointMap = buildPointMap(linkage);
+const TRACE_POINT_REF = "4";
+let path = calcPath(linkage, TRACE_POINT_REF);
+let theta = 3.7;
+let vars = calcLinkage(linkage, theta);
+let paused = true;
+let mouseDown = null;
+let mouseHoverPointKey = null;
+
+window.onkeydown = (event: KeyboardEvent) => {
+  if (event.key === " ") {
+    paused = !paused;
+    mouseDown = null;
+    mouseHoverPointKey = null;
+  }
+};
+
+canvas.onmousedown = (event: MouseEvent) => {
+  const mousePos = getMousePos(event, ctx);
+  const keys = getClickablePointkeys(paused);
+  const pointKey = getNearestPoint(mousePos, keys, vars, pointThreshold);
+  if (pointKey) {
+    mouseDown = { pos: mousePos, pointKey };
+  }
+};
+
+canvas.onmouseup = () => (mouseDown = null);
+
+canvas.onmousemove = (event: MouseEvent) => {
+  const mousePos = getMousePos(event, ctx);
+  if (!mouseDown) {
+    const keys = getClickablePointkeys(paused);
+    mouseHoverPointKey = getNearestPoint(mousePos, keys, vars, pointThreshold);
+    return;
+  }
+  const { pointKey } = mouseDown;
+  const oldPoint = [vars[pointKey[0]], vars[pointKey[1]]];
+  let result = movePoint(
+    pointKey,
+    oldPoint,
+    mousePos,
+    pointMap,
+    linkage,
+    theta,
+    vars,
+    TRACE_POINT_REF
+  );
+  if (result) {
+    linkage.initialVars = result[0];
+    theta = result[1];
+    path = result[2];
+  }
+};
+
+function draw() {
+  try {
+    vars = calcLinkage(linkage, theta);
+  } catch (_) {
+    theta += 0.05;
+    window.requestAnimationFrame(draw);
+    return;
+  }
+
+  ctx.fillStyle = "red";
+  drawStuff(
+    ctx,
+    canvas,
+    bigAxis,
+    linkage,
+    vars,
+    path,
+    mouseDown && [vars[mouseDown.pointKey[0]], vars[mouseDown.pointKey[1]]],
+    mouseHoverPointKey && [
+      vars[mouseHoverPointKey[0]],
+      vars[mouseHoverPointKey[1]],
+    ]
+  );
+
+  if (!paused) {
+    theta += 0.05;
+  }
+
+  window.requestAnimationFrame(draw);
+}
+
+window.requestAnimationFrame(draw);

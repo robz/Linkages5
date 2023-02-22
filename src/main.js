@@ -72,28 +72,28 @@ const linkage = {
   },
 };
 
-// sideeffectful/stateful stuff
 const canvas = getCanvas("canvas");
 const ctx = canvas.getContext("2d");
-
 continuallyResize(ctx, canvas);
 const pointThreshold = ctx.lineWidth * 2;
-const [smallAxis, bigAxis] = getAxis(canvas);
+const [_smallAxis, bigAxis] = getAxis(canvas);
 
 const pointMap = buildPointMap(linkage);
 const TRACE_POINT_REF = "4";
+
+// mutable state
 let path = calcPath(linkage, TRACE_POINT_REF);
 let theta = 3.7;
 let vars = calcLinkage(linkage, theta);
-let paused = true;
+let paused = false;
 let mouseDown = null;
-let mouseHoverPointKey = null;
+let mouseHover = null;
 
 window.onkeydown = (event: KeyboardEvent) => {
   if (event.key === " ") {
     paused = !paused;
     mouseDown = null;
-    mouseHoverPointKey = null;
+    mouseHover = null;
   }
 };
 
@@ -102,7 +102,7 @@ canvas.onmousedown = (event: MouseEvent) => {
   const keys = getClickablePointkeys(paused);
   const pointKey = getNearestPoint(mousePos, keys, vars, pointThreshold);
   if (pointKey) {
-    mouseDown = { pos: mousePos, pointKey };
+    mouseDown = pointKey;
   }
 };
 
@@ -112,13 +112,12 @@ canvas.onmousemove = (event: MouseEvent) => {
   const mousePos = getMousePos(event, ctx);
   if (!mouseDown) {
     const keys = getClickablePointkeys(paused);
-    mouseHoverPointKey = getNearestPoint(mousePos, keys, vars, pointThreshold);
+    mouseHover = getNearestPoint(mousePos, keys, vars, pointThreshold);
     return;
   }
-  const { pointKey } = mouseDown;
-  const oldPoint = [vars[pointKey[0]], vars[pointKey[1]]];
-  let result = movePoint(
-    pointKey,
+  const oldPoint = [vars[mouseDown[0]], vars[mouseDown[1]]];
+  const result = movePoint(
+    mouseDown,
     oldPoint,
     mousePos,
     pointMap,
@@ -143,7 +142,6 @@ function draw() {
     return;
   }
 
-  ctx.fillStyle = "red";
   drawStuff(
     ctx,
     canvas,
@@ -151,11 +149,8 @@ function draw() {
     linkage,
     vars,
     path,
-    mouseDown && [vars[mouseDown.pointKey[0]], vars[mouseDown.pointKey[1]]],
-    mouseHoverPointKey && [
-      vars[mouseHoverPointKey[0]],
-      vars[mouseHoverPointKey[1]],
-    ]
+    mouseDown && [vars[mouseDown[0]], vars[mouseDown[1]]],
+    mouseHover && [vars[mouseHover[0]], vars[mouseHover[1]]]
   );
 
   if (!paused) {

@@ -103,11 +103,7 @@ export function movePoint(
   theta: number,
   vars: { [r]: number },
   tracePr: r
-): ?[
-  {[r]: number},
-  number,
-  Lines,
-] {
+): ?[{ [r]: number }, number, Lines] {
   const pr = refToPRef(pointKey[0]);
   const oldInitialVars = { ...linkage.initialVars };
   for (const connection of pointMap[pr]) {

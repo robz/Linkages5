@@ -1,6 +1,6 @@
 /* @flow */
 
-"use strict";
+'use strict';
 
 type Point = [number, number];
 

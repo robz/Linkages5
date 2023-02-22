@@ -1,25 +1,25 @@
 /* @flow */
 
-"use strict";
+'use strict';
 
-import type { Point, Lines } from "./drawing";
+import type {Point, Lines} from './drawing';
 
-const { sin, cos, sqrt } = Math;
+const {sin, cos, sqrt} = Math;
 
 export type Linkage = {
   structures: Array<
     | {
-        type: "rotary",
-        input: { lr: r, x0r: r, y0r: r },
-        output: { x1r: r, y1r: r },
+        type: 'rotary',
+        input: {lr: r, x0r: r, y0r: r},
+        output: {x1r: r, y1r: r},
       }
     | {
-        type: "hinge",
-        input: { l0r: r, l1r: r, x0r: r, y0r: r, x1r: r, y1r: r },
-        output: { x2r: r, y2r: r },
+        type: 'hinge',
+        input: {l0r: r, l1r: r, x0r: r, y0r: r, x1r: r, y1r: r},
+        output: {x2r: r, y2r: r},
       }
   >,
-  initialVars: { [r]: number },
+  initialVars: {[r]: number},
 };
 
 export type r = string;
@@ -55,25 +55,25 @@ function calcHinge(
   return [x2, y2];
 }
 
-export function calcLinkage(linkage: Linkage, theta: number): { [r]: number } {
-  const vars = { ...linkage.initialVars };
+export function calcLinkage(linkage: Linkage, theta: number): {[r]: number} {
+  const vars = {...linkage.initialVars};
   for (const structure of linkage.structures) {
     switch (structure.type) {
-      case "rotary": {
+      case 'rotary': {
         const {
-          input: { x0r, y0r, lr },
-          output: { x1r, y1r },
+          input: {x0r, y0r, lr},
+          output: {x1r, y1r},
         } = structure;
-        const { [x0r]: x0, [y0r]: y0, [lr]: l0 } = vars;
+        const {[x0r]: x0, [y0r]: y0, [lr]: l0} = vars;
         vars[x1r] = l0 * cos(theta) + x0;
         vars[y1r] = l0 * sin(theta) + y0;
         break;
       }
 
-      case "hinge": {
+      case 'hinge': {
         const {
-          input: { x0r, y0r, x1r, y1r, l0r, l1r },
-          output: { x2r, y2r },
+          input: {x0r, y0r, x1r, y1r, l0r, l1r},
+          output: {x2r, y2r},
         } = structure;
         const {
           [x0r]: x0,

@@ -1,11 +1,11 @@
 /* @flow */
 
-"use strict";
+'use strict';
 
 export type Point = [number, number];
 export type Lines = Array<Point>;
 
-const { sin, cos, acos, atan2, min, max, sqrt, PI } = Math;
+const {sin, cos, acos, atan2, min, max, sqrt, PI} = Math;
 
 export function drawLines(ctx: CanvasRenderingContext2D, lines: Lines) {
   ctx.beginPath();
@@ -30,7 +30,7 @@ export function fillCircle(
 export function getCanvas(id: string): HTMLCanvasElement {
   const canvas = document.getElementById(id);
   if (!(canvas instanceof HTMLCanvasElement) || canvas == null) {
-    throw new Error("could not find canvas");
+    throw new Error('could not find canvas');
   }
   return canvas;
 }
@@ -59,8 +59,8 @@ export function continuallyResize(
       canvas.height / 2
     );
     ctx.lineWidth = 4 / smallAxis;
-    ctx.lineCap = "round";
-    ctx.fillStyle = "red";
+    ctx.lineCap = 'round';
+    ctx.fillStyle = 'red';
   }
   window.onresize = f;
   f();
@@ -70,8 +70,8 @@ export function getMousePos(
   event: MouseEvent,
   ctx: CanvasRenderingContext2D
 ): [number, number] {
-  const { clientX, clientY } = event;
+  const {clientX, clientY} = event;
   // $FlowFixMe
-  const { a, b, c, d, e, f } = ctx.getTransform();
+  const {a, b, c, d, e, f} = ctx.getTransform();
   return [(clientX - e) / a, (clientY - f) / d];
 }

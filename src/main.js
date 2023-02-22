@@ -1,26 +1,26 @@
 /* @flow */
 
-"use strict";
+'use strict';
 
-import type { Point } from "./drawing";
+import type {Point} from './drawing';
 
-import { getCanvas, continuallyResize, getAxis, getMousePos } from "./drawing";
-import { drawStuff } from "./drawing_linkage";
-import { calcLinkage, calcPath } from "./linkage";
-import { buildPointMap, getNearestPoint, movePoint } from "./move_point";
+import {getCanvas, continuallyResize, getAxis, getMousePos} from './drawing';
+import {drawStuff} from './drawing_linkage';
+import {calcLinkage, calcPath} from './linkage';
+import {buildPointMap, getNearestPoint, movePoint} from './move_point';
 
 function getClickablePointkeys(paused: boolean) {
   const keys = [
-    ["x0", "y0"],
-    ["x3", "y3"],
+    ['x0', 'y0'],
+    ['x3', 'y3'],
   ];
   if (paused) {
     keys.push(
-      ["x1", "y1"],
-      ["x2", "y2"],
-      ["x4", "y4"],
-      ["x5", "y5"],
-      ["x6", "y6"]
+      ['x1', 'y1'],
+      ['x2', 'y2'],
+      ['x4', 'y4'],
+      ['x5', 'y5'],
+      ['x6', 'y6']
     );
   }
   return keys;
@@ -30,33 +30,33 @@ function getClickablePointkeys(paused: boolean) {
 const linkage = {
   structures: [
     {
-      type: "rotary",
-      input: { lr: "l0", x0r: "x0", y0r: "y0" },
-      output: { x1r: "x1", y1r: "y1" },
+      type: 'rotary',
+      input: {lr: 'l0', x0r: 'x0', y0r: 'y0'},
+      output: {x1r: 'x1', y1r: 'y1'},
     },
     {
-      type: "hinge",
+      type: 'hinge',
       input: {
-        l0r: "l1",
-        l1r: "l2",
-        x0r: "x1",
-        y0r: "y1",
-        x1r: "x3",
-        y1r: "y3",
+        l0r: 'l1',
+        l1r: 'l2',
+        x0r: 'x1',
+        y0r: 'y1',
+        x1r: 'x3',
+        y1r: 'y3',
       },
-      output: { x2r: "x2", y2r: "y2" },
+      output: {x2r: 'x2', y2r: 'y2'},
     },
     {
-      type: "hinge",
+      type: 'hinge',
       input: {
-        l0r: "l3",
-        l1r: "l4",
-        x0r: "x2",
-        y0r: "y2",
-        x1r: "x1",
-        y1r: "y1",
+        l0r: 'l3',
+        l1r: 'l4',
+        x0r: 'x2',
+        y0r: 'y2',
+        x1r: 'x1',
+        y1r: 'y1',
       },
-      output: { x2r: "x4", y2r: "y4" },
+      output: {x2r: 'x4', y2r: 'y4'},
     },
   ],
   initialVars: {
@@ -72,14 +72,14 @@ const linkage = {
   },
 };
 
-const canvas = getCanvas("canvas");
-const ctx = canvas.getContext("2d");
+const canvas = getCanvas('canvas');
+const ctx = canvas.getContext('2d');
 continuallyResize(ctx, canvas);
 const pointThreshold = ctx.lineWidth * 2;
 const [_smallAxis, bigAxis] = getAxis(canvas);
 
 const pointMap = buildPointMap(linkage);
-const TRACE_POINT_REF = "4";
+const TRACE_POINT_REF = '4';
 
 // mutable state
 let path = calcPath(linkage, TRACE_POINT_REF);
@@ -90,7 +90,7 @@ let mouseDown = null;
 let mouseHover = null;
 
 window.onkeydown = (event: KeyboardEvent) => {
-  if (event.key === " ") {
+  if (event.key === ' ') {
     paused = !paused;
     mouseDown = null;
     mouseHover = null;

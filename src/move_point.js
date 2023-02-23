@@ -132,3 +132,17 @@ export function movePoint(
     linkage.initialVars = oldInitialVars;
   }
 }
+
+export function getClickablePointkeys(
+  paused: boolean,
+  pointMap: PointMap
+): Array<[r, r]> {
+  let points = Object.keys(pointMap);
+  if (!paused) {
+    // only allow clicking on stationary/ground points if unpaused
+    points = points.filter((pr) =>
+      pointMap[pr].some(({type}) => type === 'ground')
+    );
+  }
+  return points.map((pr) => prefToRefs(pr));
+}

@@ -7,24 +7,12 @@ import type {Point} from './drawing';
 import {getCanvas, continuallyResize, getAxis, getMousePos} from './drawing';
 import {drawStuff} from './drawing_linkage';
 import {calcLinkage, calcPath} from './linkage';
-import {buildPointMap, getNearestPoint, movePoint} from './move_point';
-
-function getClickablePointkeys(paused: boolean) {
-  const keys = [
-    ['x0', 'y0'],
-    ['x3', 'y3'],
-  ];
-  if (paused) {
-    keys.push(
-      ['x1', 'y1'],
-      ['x2', 'y2'],
-      ['x4', 'y4'],
-      ['x5', 'y5'],
-      ['x6', 'y6']
-    );
-  }
-  return keys;
-}
+import {
+  buildPointMap,
+  getNearestPoint,
+  movePoint,
+  getClickablePointkeys,
+} from './move_point';
 
 // linkage
 const linkage = {
@@ -99,11 +87,8 @@ window.onkeydown = (event: KeyboardEvent) => {
 
 canvas.onmousedown = (event: MouseEvent) => {
   const mousePos = getMousePos(event, ctx);
-  const keys = getClickablePointkeys(paused);
-  const pointKey = getNearestPoint(mousePos, keys, vars, pointThreshold);
-  if (pointKey) {
-    mouseDown = pointKey;
-  }
+  const keys = getClickablePointkeys(paused, pointMap);
+  mouseDown = getNearestPoint(mousePos, keys, vars, pointThreshold);
 };
 
 canvas.onmouseup = () => (mouseDown = null);
@@ -111,7 +96,7 @@ canvas.onmouseup = () => (mouseDown = null);
 canvas.onmousemove = (event: MouseEvent) => {
   const mousePos = getMousePos(event, ctx);
   if (!mouseDown) {
-    const keys = getClickablePointkeys(paused);
+    const keys = getClickablePointkeys(paused, pointMap);
     mouseHover = getNearestPoint(mousePos, keys, vars, pointThreshold);
     return;
   }

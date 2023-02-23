@@ -6,6 +6,8 @@ import type {Point, Lines} from './drawing';
 
 const {sin, cos, sqrt} = Math;
 
+export type r = string;
+
 export type Linkage = {
   structures: Array<
     | {
@@ -22,15 +24,10 @@ export type Linkage = {
   initialVars: {[r]: number},
 };
 
-export type r = string;
-
 export const refToPRef = (ref: r): string => ref.substring(1);
 export const refsToPRefs = (...refs: Array<r>): Array<string> =>
   refs.map(refToPRef);
-export const prefToRefs = (pref: r): [string, string] => [
-  `x${pref}`,
-  `y${pref}`,
-];
+export const prefToRefs = (pref: string): [r, r] => [`x${pref}`, `y${pref}`];
 
 function calcHinge(
   x0: number,
@@ -93,7 +90,11 @@ export function calcLinkage(linkage: Linkage, theta: number): {[r]: number} {
   return vars;
 }
 
-export function calcPath(linkage: Linkage, pr: r, n: number = 125): Lines {
+export function calcPath(
+  linkage: Linkage,
+  pr: string = '0',
+  n: number = 125
+): Lines {
   const path = [];
   const [xr, yr] = prefToRefs(pr);
   for (let i = 0; i < n; i++) {

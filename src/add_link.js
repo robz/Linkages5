@@ -5,7 +5,7 @@ import type {Linkage, r} from './linkage';
 
 import {drawLines} from './drawing';
 import {euclid} from './geometry';
-import {calcPath} from './linkage';
+import {calcPath, getNs} from './linkage';
 
 type PointRef = [r, r];
 
@@ -35,13 +35,10 @@ export function doEffect(
   {structures, initialVars}: Linkage,
   vars: {[r]: number}
 ): Linkage {
-  const varNames = Object.keys(vars);
-  const ln = 1 + getMaxN(varNames, 'l');
-  const xn = 1 + getMaxN(varNames, 'x');
-  const yn = 1 + getMaxN(varNames, 'y');
+  const {getXR, getYR, getLR} = getNs(Object.keys(vars));
 
-  const l0r = 'l' + ln;
-  const l1r = 'l' + (ln + 1);
+  const l0r = getLR();
+  const l1r = getLR();
 
   switch (effect.t) {
     case 'ppg': {
@@ -49,8 +46,8 @@ export function doEffect(
       const [x0r, y0r] = p0r;
       const [x1r, y1r] = p1r;
       const {[x0r]: x0, [x1r]: x1, [y0r]: y0, [y1r]: y1} = vars;
-      const x2r = 'x' + xn;
-      const y2r = 'y' + yn;
+      const x2r = getXR();
+      const y2r = getYR();
       initialVars = {
         ...initialVars,
         [l0r]: euclid([x0, y0], p2),
@@ -74,10 +71,10 @@ export function doEffect(
       } = effect;
       const [x0r, y0r] = p0r;
       const {[x0r]: x0, [y0r]: y0} = vars;
-      const x1r = 'x' + xn;
-      const y1r = 'y' + yn;
-      const x2r = 'x' + (xn + 1);
-      const y2r = 'y' + (yn + 1);
+      const x1r = getXR();
+      const y1r = getYR();
+      const x2r = getXR();
+      const y2r = getYR();
       initialVars = {
         ...initialVars,
         [l0r]: euclid([x0, y0], p2),
@@ -193,13 +190,6 @@ export function reduce(
       }
       break;
   }
-}
-
-function getMaxN(varNames: Array<r>, type: string) {
-  const ns = varNames
-    .filter((v) => v[0] === type)
-    .map((v) => parseInt(v.substring(1)));
-  return Math.max(-1, ...ns);
 }
 
 export function drawPreview(

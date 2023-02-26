@@ -6,7 +6,7 @@ import type {Linkage} from './linkage';
 
 import {getCanvas, continuallyResize, getAxis, getMousePos} from './drawing';
 import {drawStuff} from './drawing_linkage';
-import {calcLinkage, calcPath} from './linkage';
+import {internalize, externalize, calcLinkage, calcPath} from './linkage';
 import {
   buildPointMap,
   getNearestPoint,
@@ -76,7 +76,7 @@ const [_smallAxis, bigAxis] = getAxis(canvas);
 const TRACE_POINT_REF = '4';
 
 // mutable state
-let linkage = fourBarCoupler;
+let linkage = externalize(internalize(fourBarCoupler));
 let pointMap = buildPointMap(linkage);
 let path = calcPath(linkage, TRACE_POINT_REF);
 let theta = 3.7;

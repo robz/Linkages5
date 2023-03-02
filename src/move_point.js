@@ -94,7 +94,6 @@ export function getNearestPoint(
 
 export function movePoint(
   pointKey: [r, r],
-  oldPoint: Point,
   newPoint: Point,
   pointMap: PointMap,
   linkage: Linkage,

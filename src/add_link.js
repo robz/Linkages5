@@ -1,11 +1,16 @@
 /* @flow */
 
 import type {Point} from './drawing';
-import type {Linkage, r} from './linkage';
+import type { Linkage, LinkageInternal, r } from "./linkage";
 
 import {drawLines} from './drawing';
 import {euclid} from './geometry';
-import {calcPath, getNs} from './linkage';
+import {
+  calcHingeFromPoints,
+  calcPath,
+  calcPathInternal,
+  getNs,
+} from "./linkage";
 
 type PointRef = [r, r];
 
@@ -97,18 +102,103 @@ export function doEffect(
   return {structures, initialVars};
 }
 
+export function doEffectInternal(
+  effect: SideEffect,
+  {structures, initialVars}: LinkageInternal,
+  vars: {[r]: number}
+): LinkageInternal {
+  const {getXR, getYR, getLR} = getNs(Object.keys(vars));
+
+  const l2tr = getLR();
+
+  switch (effect.t) {
+    case 'ppg': {
+      const {p0r, p1r, p2: [x2, y2]} = effect;
+      const [x0r, y0r] = p0r;
+      const [x1r, y1r] = p1r;
+      const {[x0r]: x0, [x1r]: x1, [y0r]: y0, [y1r]: y1} = vars;
+      const {xt, yt, l2} = calcHingeFromPoints(
+        [x0, y0],
+        [x1, y1],
+        [x2, y2]
+      );
+
+      const x2r = getXR();
+      const y2r = getYR();
+      const xtr = getXR();
+      const ytr = getYR();
+      initialVars = {
+        ...initialVars,
+        [xtr]: xt,
+        [ytr]: yt,
+        [l2tr]: l2,
+      };
+      structures = [
+        ...structures,
+        {
+          type: 'hinge',
+          input: {xtr, ytr, l2tr, x0r, y0r, x1r, y1r},
+          output: {x2r, y2r},
+        },
+      ];
+      break;
+    }
+    case 'pgg': {
+      const {
+        p0r,
+        p1: [x1, y1],
+        p2: [x2, y2],
+      } = effect;
+      const [x0r, y0r] = p0r;
+      const {[x0r]: x0, [y0r]: y0} = vars;
+      const {xt, yt, l2} = calcHingeFromPoints(
+        [x0, y0],
+        [x1, y1],
+        [x2, y2]
+      );
+
+      const x1r = getXR();
+      const y1r = getYR();
+      const x2r = getXR();
+      const y2r = getYR();
+      const xtr = getXR();
+      const ytr = getYR();
+      initialVars = {
+        ...initialVars,
+        [x1r]: x1,
+        [y1r]: y1,
+        [xtr]: xt,
+        [ytr]: yt,
+        [l2tr]: l2,
+      };
+      structures = [
+        ...structures,
+        {
+          type: 'hinge',
+          input: {xtr, ytr, l2tr, x0r, y0r, x1r, y1r},
+          output: {x2r, y2r},
+        },
+      ];
+      break;
+    }
+  }
+
+  return {structures, initialVars};
+}
+
 function simulate(
   oldState: State,
   newState: State,
   effect: SideEffect,
-  linkage: Linkage,
+  linkage: LinkageInternal,
   vars: {[r]: number}
 ): {state: State, effect?: SideEffect} {
-  const newLinkage = doEffect(effect, linkage, vars);
+  const newLinkage = doEffectInternal(effect, linkage, vars);
   try {
-    calcPath(newLinkage);
+    calcPathInternal(newLinkage);
     return {state: newState, effect};
-  } catch {
+  } catch(e) {
+    console.log('simulate error', e);
     return {state: oldState};
   }
 }
@@ -116,7 +206,7 @@ function simulate(
 export function reduce(
   state: State,
   action: Action,
-  linkage: Linkage,
+  linkage: LinkageInternal,
   vars: {[r]: number}
 ): {state: State, effect?: SideEffect} {
   if (action.t === 'esc') {

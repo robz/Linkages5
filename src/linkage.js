@@ -4,6 +4,8 @@
 
 import type {Point, Lines} from './drawing';
 
+import {euclid} from './geometry';
+
 const {sin, cos, sqrt} = Math;
 
 export type r = string;
@@ -86,6 +88,29 @@ function calcHinge(
   const x2 = x0 + xt * cosTheta - yt * sinTheta;
   const y2 = y0 + xt * sinTheta + yt * cosTheta;
   return {p2: [x2, y2], xt, yt, l2};
+}
+
+export function calcHingeFromPoints(
+  [x0, y0]: Point,
+  [x1, y1]: Point,
+  [x2, y2]: Point
+): {
+  xt: number,
+  yt: number,
+  l2: number,
+} {
+  const l2 = euclid([x0, y0], [x1, y1]);
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const cosTheta = dx / l2;
+  const sinTheta = -dy / l2;
+  const xt = x2 - x0;
+  const yt = y2 - y0;
+  return {
+    xt: xt * cosTheta - yt * sinTheta,
+    yt: xt * sinTheta + yt * cosTheta,
+    l2,
+  };
 }
 
 function calcHingeInternal(

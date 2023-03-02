@@ -1,13 +1,13 @@
 /* @flow */
 
-import type {r, Linkage} from './linkage';
+import type { r, Linkage, LinkageInternal } from "./linkage";
 import type {Point, Lines} from './drawing';
 
 import {drawLines, fillCircle} from './drawing';
 
 export function drawLinkage(
   ctx: CanvasRenderingContext2D,
-  linkage: Linkage,
+  linkage: Linkage | LinkageInternal,
   vars: {[r]: number}
 ) {
   for (const structure of linkage.structures) {
@@ -53,7 +53,7 @@ export function drawStuff(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   bigAxis: number,
-  linkage: Linkage,
+  linkage: Linkage | LinkageInternal,
   vars: {[r]: number},
   path: Lines,
   downPoint: ?Point,

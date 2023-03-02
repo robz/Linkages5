@@ -6,19 +6,27 @@ import type {Linkage} from './linkage';
 
 import {getCanvas, continuallyResize, getAxis, getMousePos} from './drawing';
 import {drawStuff} from './drawing_linkage';
-import {internalize, externalize, calcLinkage, calcPath} from './linkage';
+import {
+  internalize,
+  externalize,
+  calcLinkage,
+  calcPath,
+  calcLinkageInternal,
+  calcPathInternal,
+} from './linkage';
+import {getNearestPoint} from './move_point';
 import {
   buildPointMap,
-  getNearestPoint,
   movePoint,
   getClickablePointkeys,
-} from './move_point';
+} from './move_point_internal';
 import {
   INIT_STATE,
   getActionFromMouseUp,
   reduce,
   doEffect,
   drawPreview,
+  doEffectInternal,
 } from './add_link';
 
 // linkage
@@ -76,11 +84,11 @@ const [_smallAxis, bigAxis] = getAxis(canvas);
 const TRACE_POINT_REF = '4';
 
 // mutable state
-let linkage = externalize(internalize(fourBarCoupler));
+let linkage = internalize(fourBarCoupler);
 let pointMap = buildPointMap(linkage);
-let path = calcPath(linkage, TRACE_POINT_REF);
+let path = calcPathInternal(linkage, TRACE_POINT_REF);
 let theta = 3.7;
-let vars = calcLinkage(linkage, theta);
+let vars = calcLinkageInternal(linkage, theta);
 let paused = false;
 let mouseDown = null;
 let mouseHover = null;
@@ -109,7 +117,7 @@ canvas.onmousedown = (event: MouseEvent) => {
 
   dragging = false;
   const mousePos = getMousePos(event, ctx);
-  const keys = getClickablePointkeys(paused, pointMap);
+  const keys = getClickablePointkeys(paused, pointMap, linkage.initialVars);
   mouseDown = getNearestPoint(mousePos, keys, vars, pointThreshold);
 };
 
@@ -125,16 +133,16 @@ canvas.onmouseup = (event: MouseEvent) => {
   }
 
   const mousePos = getMousePos(event, ctx);
-  const keys = getClickablePointkeys(paused, pointMap);
+  const keys = getClickablePointkeys(paused, pointMap, linkage.initialVars);
   const nearestPoint = getNearestPoint(mousePos, keys, vars, pointThreshold);
 
   const action = getActionFromMouseUp(mousePos, nearestPoint);
   const result = reduce(addLinkState, action, linkage, vars);
   addLinkState = result.state;
   if (result.effect) {
-    linkage = doEffect(result.effect, linkage, vars);
+    linkage = doEffectInternal(result.effect, linkage, vars);
     pointMap = buildPointMap(linkage);
-    vars = calcLinkage(linkage, theta);
+    vars = calcLinkageInternal(linkage, theta);
   }
   console.log(addLinkState);
 };
@@ -142,15 +150,13 @@ canvas.onmouseup = (event: MouseEvent) => {
 canvas.onmousemove = (event: MouseEvent) => {
   mousePos = getMousePos(event, ctx);
   if (!mouseDown) {
-    const keys = getClickablePointkeys(paused, pointMap);
+    const keys = getClickablePointkeys(paused, pointMap, linkage.initialVars);
     mouseHover = getNearestPoint(mousePos, keys, vars, pointThreshold);
     return;
   }
   dragging = true;
-  const oldPoint = [vars[mouseDown[0]], vars[mouseDown[1]]];
   const result = movePoint(
     mouseDown,
-    oldPoint,
     mousePos,
     pointMap,
     linkage,
@@ -159,15 +165,15 @@ canvas.onmousemove = (event: MouseEvent) => {
     TRACE_POINT_REF
   );
   if (result) {
-    linkage.initialVars = result[0];
-    theta = result[1];
-    path = result[2];
+    linkage.initialVars = result.vars;
+    theta = result.theta;
+    path = result.path;
   }
 };
 
 function draw() {
   try {
-    vars = calcLinkage(linkage, theta);
+    vars = calcLinkageInternal(linkage, theta);
   } catch (_) {
     theta += 0.05;
     window.requestAnimationFrame(draw);

@@ -1,32 +1,34 @@
 /* @flow */
 
 import type {Point} from './drawing';
-import type { Linkage, LinkageInternal, r } from "./linkage";
+import type {LinkageInternal, r} from './linkage';
 
 import {drawLines} from './drawing';
 import {euclid} from './geometry';
 import {
   calcHingeFromPoints,
-  calcPath,
   calcPathInternal,
-  getNs,
-} from "./linkage";
+  makeRefCounters,
+} from './linkage';
 
 type PointRef = [r, r];
 
 type State =
   | {t: 'none'}
-  | {t: 'g', p0: Point}
-  | {t: 'gg', p0: Point, p1: Point}
-  | {t: 'p', p0r: PointRef}
-  | {t: 'pp', p0r: PointRef, p1r: PointRef}
-  | {t: 'pg', p0r: PointRef, p1: Point};
+  | {t: 'g', p0: Point} // Clicked the ground
+  | {t: 'gg', p0: Point, p1: Point} // Clicked the ground twice
+  | {t: 'p', p0r: PointRef} // Selected a point
+  | {t: 'pp', p0r: PointRef, p1r: PointRef} // Selected two points
+  | {t: 'pg', p0r: PointRef, p1: Point}; // point + ground
 
 type Action = {t: 'esc'} | {t: 'g', p0: Point} | {t: 'p', p0r: PointRef};
+// TODO: allow clicking on bars
 //| {action: 'pp', p0: PointRef, p1: PointRef}
 
 type SideEffect =
+  // Add a hinge between to points
   | {t: 'ppg', p0r: PointRef, p1r: PointRef, p2: Point}
+  // Add a hinge to the ground
   | {t: 'pgg', p0r: PointRef, p1: Point, p2: Point};
 
 export const INIT_STATE: State = {t: 'none'};
@@ -37,91 +39,24 @@ export function getActionFromMouseUp(p0: Point, p0r: ?PointRef): Action {
 
 export function doEffect(
   effect: SideEffect,
-  {structures, initialVars}: Linkage,
-  vars: {[r]: number}
-): Linkage {
-  const {getXR, getYR, getLR} = getNs(Object.keys(vars));
-
-  const l0r = getLR();
-  const l1r = getLR();
-
-  switch (effect.t) {
-    case 'ppg': {
-      const {p0r, p1r, p2} = effect;
-      const [x0r, y0r] = p0r;
-      const [x1r, y1r] = p1r;
-      const {[x0r]: x0, [x1r]: x1, [y0r]: y0, [y1r]: y1} = vars;
-      const x2r = getXR();
-      const y2r = getYR();
-      initialVars = {
-        ...initialVars,
-        [l0r]: euclid([x0, y0], p2),
-        [l1r]: euclid([x1, y1], p2),
-      };
-      structures = [
-        ...structures,
-        {
-          type: 'hinge',
-          input: {l0r, l1r, x0r, y0r, x1r, y1r},
-          output: {x2r, y2r},
-        },
-      ];
-      break;
-    }
-    case 'pgg': {
-      const {
-        p0r,
-        p1: [x1, y1],
-        p2,
-      } = effect;
-      const [x0r, y0r] = p0r;
-      const {[x0r]: x0, [y0r]: y0} = vars;
-      const x1r = getXR();
-      const y1r = getYR();
-      const x2r = getXR();
-      const y2r = getYR();
-      initialVars = {
-        ...initialVars,
-        [l0r]: euclid([x0, y0], p2),
-        [l1r]: euclid([x1, y1], p2),
-        [x1r]: x1,
-        [y1r]: y1,
-      };
-      structures = [
-        ...structures,
-        {
-          type: 'hinge',
-          input: {l0r, l1r, x0r, y0r, x1r, y1r},
-          output: {x2r, y2r},
-        },
-      ];
-      break;
-    }
-  }
-
-  return {structures, initialVars};
-}
-
-export function doEffectInternal(
-  effect: SideEffect,
   {structures, initialVars}: LinkageInternal,
   vars: {[r]: number}
 ): LinkageInternal {
-  const {getXR, getYR, getLR} = getNs(Object.keys(vars));
+  const {getXR, getYR, getLR} = makeRefCounters(Object.keys(vars));
 
   const l2tr = getLR();
 
   switch (effect.t) {
     case 'ppg': {
-      const {p0r, p1r, p2: [x2, y2]} = effect;
+      const {
+        p0r,
+        p1r,
+        p2: [x2, y2],
+      } = effect;
       const [x0r, y0r] = p0r;
       const [x1r, y1r] = p1r;
       const {[x0r]: x0, [x1r]: x1, [y0r]: y0, [y1r]: y1} = vars;
-      const {xt, yt, l2} = calcHingeFromPoints(
-        [x0, y0],
-        [x1, y1],
-        [x2, y2]
-      );
+      const {xt, yt, l2} = calcHingeFromPoints([x0, y0], [x1, y1], [x2, y2]);
 
       const x2r = getXR();
       const y2r = getYR();
@@ -151,11 +86,7 @@ export function doEffectInternal(
       } = effect;
       const [x0r, y0r] = p0r;
       const {[x0r]: x0, [y0r]: y0} = vars;
-      const {xt, yt, l2} = calcHingeFromPoints(
-        [x0, y0],
-        [x1, y1],
-        [x2, y2]
-      );
+      const {xt, yt, l2} = calcHingeFromPoints([x0, y0], [x1, y1], [x2, y2]);
 
       const x1r = getXR();
       const y1r = getYR();
@@ -186,23 +117,25 @@ export function doEffectInternal(
   return {structures, initialVars};
 }
 
-function simulate(
+// Try to do the effect. If it fails, revert to the old state.
+function tryEffect(
   oldState: State,
   newState: State,
   effect: SideEffect,
   linkage: LinkageInternal,
   vars: {[r]: number}
 ): {state: State, effect?: SideEffect} {
-  const newLinkage = doEffectInternal(effect, linkage, vars);
+  const newLinkage = doEffect(effect, linkage, vars);
   try {
     calcPathInternal(newLinkage);
     return {state: newState, effect};
-  } catch(e) {
+  } catch (e) {
     console.log('simulate error', e);
     return {state: oldState};
   }
 }
 
+// Handle a UI event related to creating links
 export function reduce(
   state: State,
   action: Action,
@@ -236,7 +169,7 @@ export function reduce(
         case 'g':
           return {state};
         case 'p':
-          return simulate(
+          return tryEffect(
             state,
             INIT_STATE,
             {...action, t: 'pgg', p1: state.p0, p2: state.p1},
@@ -248,7 +181,7 @@ export function reduce(
     case 'pp':
       switch (action.t) {
         case 'g':
-          return simulate(
+          return tryEffect(
             state,
             INIT_STATE,
             {...state, t: 'ppg', p2: action.p0},
@@ -262,7 +195,7 @@ export function reduce(
     case 'pg':
       switch (action.t) {
         case 'g':
-          return simulate(
+          return tryEffect(
             state,
             INIT_STATE,
             {...state, t: 'pgg', p2: action.p0},
@@ -270,7 +203,7 @@ export function reduce(
             vars
           );
         case 'p':
-          return simulate(
+          return tryEffect(
             state,
             INIT_STATE,
             {t: 'ppg', p0r: state.p0r, p1r: action.p0r, p2: state.p1},

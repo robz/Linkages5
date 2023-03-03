@@ -10,13 +10,16 @@ const {sin, cos, sqrt} = Math;
 
 export type r = string;
 
-export type Linkage = {
+type RotaryStructure = {
+  type: 'rotary',
+  input: {lr: r, x0r: r, y0r: r},
+  output: {x1r: r, y1r: r},
+};
+
+// Linkage spec that is exported/imported
+export type LinkageExternal = {
   structures: Array<
-    | {
-        type: 'rotary',
-        input: {lr: r, x0r: r, y0r: r},
-        output: {x1r: r, y1r: r},
-      }
+    | RotaryStructure
     | {
         type: 'hinge',
         input: {l0r: r, l1r: r, x0r: r, y0r: r, x1r: r, y1r: r},
@@ -26,6 +29,7 @@ export type Linkage = {
   initialVars: {[r]: number},
 };
 
+// Internal linkage spec, which reparameterizes hinges
 export type LinkageInternal = {
   structures: Array<
     | {
@@ -54,7 +58,7 @@ function getMaxN(varNames: Array<r>, type: string): number {
   return Math.max(-1, ...ns);
 }
 
-export function getNs(
+export function makeRefCounters(
   varNames: Array<r>
 ): {getXR: () => r, getYR: () => r, getLR: () => r} {
   let ln = 1 + getMaxN(varNames, 'l');
@@ -141,7 +145,7 @@ function calcHingeInternal(
   return {p2: [x2, y2], l0, l1};
 }
 
-function getVarNames(linkage: Linkage): Array<r> {
+function getVarNamesExternal(linkage: LinkageExternal): Array<r> {
   const set = new Set();
   for (const structure of linkage.structures) {
     switch (structure.type) {
@@ -193,13 +197,13 @@ function getVarNamesInternal(linkage: LinkageInternal): Array<r> {
   return Array.from(set);
 }
 
-export function internalize(ext: Linkage): LinkageInternal {
+export function internalize(ext: LinkageExternal): LinkageInternal {
   const theta = 0;
   const vars = {...ext.initialVars};
   const structures = [];
   const initialVars: {[r]: number} = {};
 
-  const {getXR, getYR, getLR} = getNs(getVarNames(ext));
+  const {getXR, getYR, getLR} = makeRefCounters(getVarNamesExternal(ext));
 
   for (const structure of ext.structures) {
     switch (structure.type) {
@@ -263,13 +267,13 @@ export function internalize(ext: Linkage): LinkageInternal {
   return {initialVars, structures};
 }
 
-export function externalize(intern: LinkageInternal): Linkage {
+export function externalize(intern: LinkageInternal): LinkageExternal {
   const theta = 0;
   const vars = {...intern.initialVars};
   const structures = [];
   const initialVars: {[r]: number} = {};
 
-  const {getXR, getYR, getLR} = getNs(getVarNamesInternal(intern));
+  const {getXR, getYR, getLR} = makeRefCounters(getVarNamesInternal(intern));
 
   for (const structure of intern.structures) {
     switch (structure.type) {
@@ -332,44 +336,6 @@ export function externalize(intern: LinkageInternal): Linkage {
   return {initialVars, structures};
 }
 
-export function calcLinkage(linkage: Linkage, theta: number): {[r]: number} {
-  const vars = {...linkage.initialVars};
-  for (const structure of linkage.structures) {
-    switch (structure.type) {
-      case 'rotary': {
-        const {
-          input: {x0r, y0r, lr},
-          output: {x1r, y1r},
-        } = structure;
-        const {[x0r]: x0, [y0r]: y0, [lr]: l0} = vars;
-        vars[x1r] = l0 * cos(theta) + x0;
-        vars[y1r] = l0 * sin(theta) + y0;
-        break;
-      }
-
-      case 'hinge': {
-        const {
-          input: {x0r, y0r, x1r, y1r, l0r, l1r},
-          output: {x2r, y2r},
-        } = structure;
-        const {
-          [x0r]: x0,
-          [y0r]: y0,
-          [x1r]: x1,
-          [y1r]: y1,
-          [l0r]: l0,
-          [l1r]: l1,
-        } = vars;
-        const [x2, y2] = calcHinge(x0, y0, x1, y1, l0, l1).p2;
-        vars[x2r] = x2;
-        vars[y2r] = y2;
-        break;
-      }
-    }
-  }
-  return vars;
-}
-
 export function calcLinkageInternal(
   linkage: LinkageInternal,
   theta: number
@@ -410,21 +376,6 @@ export function calcLinkageInternal(
     }
   }
   return vars;
-}
-
-export function calcPath(
-  linkage: Linkage,
-  pr: string = '0',
-  n: number = 125
-): Lines {
-  const path = [];
-  const [xr, yr] = prefToRefs(pr);
-  for (let i = 0; i < n; i++) {
-    const vars = calcLinkage(linkage, (i * Math.PI * 2) / n);
-    path.push([vars[xr], vars[yr]]);
-  }
-  path.push(path[0]);
-  return path;
 }
 
 export function calcPathInternal(

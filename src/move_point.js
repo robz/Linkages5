@@ -2,81 +2,181 @@
 
 'use strict';
 
-import type {Point, Lines} from './drawing';
-import type {r, Linkage} from './linkage';
+import type {Lines, Point} from './drawing';
+import type {LinkageInternal, r} from './linkage';
 
-import {calcPath, prefToRefs, refToPRef, refsToPRefs} from './linkage';
 import {euclid} from './geometry';
+import {
+  calcHingeFromPoints,
+  calcPathInternal,
+  prefToRefs,
+  refToPRef,
+} from './linkage';
 
 export type PointMap = {
-  [r]: Array<
-    | {type: 'ground'}
-    | {type: 'joint', pr: r, lr: r}
-    | {type: 'actuator', pr: r, lr: r}
-  >,
+  [r]: Array<number>,
 };
 
-function tryAddGround(
-  initialVars: {[r]: number},
-  m: PointMap,
-  xr: r,
-  p0r: r,
-  p1r: r,
-  lr: r
-) {
-  m[p0r].push(
-    initialVars[xr] != null ? {type: 'ground'} : {type: 'joint', pr: p1r, lr}
-  );
+function push(m: PointMap, k: string, x: number) {
+  m[k] = m[k] || [];
+  m[k].push(x);
 }
 
-// map points to connections (grounds, joints, actuators)
-export function buildPointMap({structures, initialVars}: Linkage): PointMap {
+export function buildPointMap({structures}: LinkageInternal): PointMap {
   const m: PointMap = {};
-  Object.keys(initialVars).forEach((ref) => {
-    if (ref.startsWith('x')) {
-      m[refToPRef(ref)] = [];
-    }
-  });
-  for (const structure of structures) {
+  const rotaryPoints = [];
+  structures.forEach((structure, i) => {
     switch (structure.type) {
       case 'rotary': {
         const {
-          input: {x0r, lr},
+          input: {x0r},
           output: {x1r},
         } = structure;
-        const [p0r, p1r] = refsToPRefs(x0r, x1r);
-        tryAddGround(initialVars, m, x0r, p0r, p1r, lr);
-        m[p1r] = m[p1r] || [];
-        m[p1r].push({type: 'actuator', pr: p0r, lr});
+        push(m, x0r, i);
+        push(m, x1r, i);
+        rotaryPoints.push(x1r);
         break;
       }
 
       case 'hinge': {
         const {
-          input: {x0r, x1r, l0r, l1r},
+          input: {x0r, x1r},
           output: {x2r},
         } = structure;
-        const [p0r, p1r, p2r] = refsToPRefs(x0r, x1r, x2r);
-        tryAddGround(initialVars, m, x0r, p0r, p2r, l0r);
-        tryAddGround(initialVars, m, x1r, p1r, p2r, l1r);
-        m[p2r] = m[p2r] || [];
-        m[p2r].push(
-          {type: 'joint', pr: p0r, lr: l0r},
-          {type: 'joint', pr: p1r, lr: l1r}
-        );
+        push(m, x0r, i);
+        push(m, x1r, i);
+        push(m, x2r, i);
+        break;
+      }
+    }
+  });
+
+  // remove all other structures from rotary points
+  // since we just want the actuator to move in those cases
+  for (const xr of rotaryPoints) {
+    m[xr] = m[xr].filter((i) => structures[i].type === 'rotary');
+  }
+
+  return m;
+}
+
+export function movePoint(
+  pointKey: [r, r],
+  newPoint: Point,
+  pointMap: PointMap,
+  linkage: LinkageInternal,
+  theta: number,
+  vars: {[r]: number},
+  tracePr: r
+): ?{vars: {[r]: number}, theta: number, path: Lines} {
+  const [xr, yr] = pointKey;
+  const [x, y] = newPoint;
+
+  const {structures, initialVars} = linkage;
+  const newInitialVars = {...initialVars};
+  let newTheta = theta;
+
+  for (const i of pointMap[xr]) {
+    const structure = structures[i];
+    switch (structure.type) {
+      case 'rotary': {
+        const {
+          input: {x0r, y0r, lr},
+          output: {x1r, y1r},
+        } = structure;
+        const {[x0r]: x0, [y0r]: y0, [x1r]: x1, [y1r]: y1} = vars;
+        const p0 = [x0, y0];
+        const p1 = [x1, y1];
+
+        if (x0r === xr) {
+          // check if its a ground point
+          if (initialVars[xr] != null) {
+            newInitialVars[xr] = x;
+            newInitialVars[yr] = y;
+          } else {
+            newInitialVars[lr] = euclid(newPoint, p1);
+            newTheta = Math.atan2(y1 - y, x1 - x);
+          }
+        } else if (x1r === xr) {
+          newInitialVars[lr] = euclid(p0, newPoint);
+          newTheta = Math.atan2(y - y0, x - x0);
+        }
+
+        break;
+      }
+
+      case 'hinge': {
+        const {
+          input: {x0r, y0r, x1r, y1r, l2tr, xtr, ytr},
+          output: {x2r, y2r},
+        } = structure;
+        const {
+          [x0r]: x0,
+          [y0r]: y0,
+          [x1r]: x1,
+          [y1r]: y1,
+          [x2r]: x2,
+          [y2r]: y2,
+        } = vars;
+        const p0 = [x0, y0];
+        const p1 = [x1, y1];
+        const p2 = [x2, y2];
+
+        if (x0r === xr) {
+          // check if its a ground point
+          if (initialVars[xr] != null) {
+            newInitialVars[xr] = x;
+            newInitialVars[yr] = y;
+          } else {
+            const {xt, yt, l2} = calcHingeFromPoints(newPoint, p1, p2);
+            newInitialVars[l2tr] = l2;
+            newInitialVars[xtr] = xt;
+            newInitialVars[ytr] = yt;
+          }
+        } else if (x1r === xr) {
+          // check if its a ground point
+          if (initialVars[xr] != null) {
+            newInitialVars[xr] = x;
+            newInitialVars[yr] = y;
+          } else {
+            const {xt, yt, l2} = calcHingeFromPoints(p0, newPoint, p2);
+            newInitialVars[l2tr] = l2;
+            newInitialVars[xtr] = xt;
+            newInitialVars[ytr] = yt;
+          }
+        } else if (x2r === xr) {
+          const {xt, yt, l2} = calcHingeFromPoints(p0, p1, newPoint);
+          newInitialVars[l2tr] = l2;
+          newInitialVars[xtr] = xt;
+          newInitialVars[ytr] = yt;
+        }
+
         break;
       }
     }
   }
-  Object.keys(m).forEach((pr) => {
-    const actuators = m[pr].filter((p) => p.type === 'actuator');
-    if (actuators.length > 0) {
-      // moving actuators should only change the lengths of the actuator,
-      // not the lengths of the links attached to it
-      m[pr] = actuators;
-    }
-  });
-  return m;
+  try {
+    const path = calcPathInternal(
+      {structures, initialVars: newInitialVars},
+      tracePr
+    );
+    return {vars: newInitialVars, theta: newTheta, path};
+  } catch {
+    return null;
+  }
+}
+
+export function getClickablePointkeys(
+  paused: boolean,
+  pointMap: PointMap,
+  initialVars: {[r]: number}
+): Array<[r, r]> {
+  let points = Object.keys(pointMap);
+  if (!paused) {
+    // only allow clicking on stationary/ground points if unpaused
+    points = points.filter((pr) => initialVars[pr] != null);
+  }
+  return points.map((pr) => prefToRefs(refToPRef(pr)));
 }
 
 export function getNearestPoint(
@@ -90,58 +190,4 @@ export function getNearestPoint(
       return [xr, yr];
     }
   }
-}
-
-export function movePoint(
-  pointKey: [r, r],
-  newPoint: Point,
-  pointMap: PointMap,
-  linkage: Linkage,
-  theta: number,
-  vars: {[r]: number},
-  tracePr: r
-): ?[{[r]: number}, number, Lines] {
-  const pr = refToPRef(pointKey[0]);
-  const oldInitialVars = {...linkage.initialVars};
-  for (const connection of pointMap[pr]) {
-    switch (connection.type) {
-      case 'ground':
-        linkage.initialVars[pointKey[0]] = newPoint[0];
-        linkage.initialVars[pointKey[1]] = newPoint[1];
-        break;
-
-      case 'actuator':
-      case 'joint':
-        const {lr, pr: pr0} = connection;
-        const [x0r, y0r] = prefToRefs(pr0);
-        const origin = [vars[x0r], vars[y0r]];
-        linkage.initialVars[lr] = euclid(origin, newPoint);
-        if (connection.type === 'actuator') {
-          theta = Math.atan2(newPoint[1] - origin[1], newPoint[0] - origin[0]);
-        }
-        break;
-    }
-  }
-  try {
-    const path = calcPath(linkage, tracePr);
-    return [linkage.initialVars, theta, path];
-  } catch {
-    return null;
-  } finally {
-    linkage.initialVars = oldInitialVars;
-  }
-}
-
-export function getClickablePointkeys(
-  paused: boolean,
-  pointMap: PointMap
-): Array<[r, r]> {
-  let points = Object.keys(pointMap);
-  if (!paused) {
-    // only allow clicking on stationary/ground points if unpaused
-    points = points.filter((pr) =>
-      pointMap[pr].some(({type}) => type === 'ground')
-    );
-  }
-  return points.map((pr) => prefToRefs(pr));
 }

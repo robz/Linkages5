@@ -2,35 +2,31 @@
 
 'use strict';
 
-import type {Linkage} from './linkage';
+import type {LinkageExternal} from './linkage';
 
 import {getCanvas, continuallyResize, getAxis, getMousePos} from './drawing';
 import {drawStuff} from './drawing_linkage';
 import {
   internalize,
-  externalize,
-  calcLinkage,
-  calcPath,
   calcLinkageInternal,
   calcPathInternal,
 } from './linkage';
-import {getNearestPoint} from './move_point';
 import {
   buildPointMap,
   movePoint,
   getClickablePointkeys,
-} from './move_point_internal';
+  getNearestPoint,
+} from './move_point';
 import {
   INIT_STATE,
   getActionFromMouseUp,
   reduce,
-  doEffect,
   drawPreview,
-  doEffectInternal,
+  doEffect,
 } from './add_link';
 
 // linkage
-const fourBarCoupler: Linkage = {
+const fourBarCoupler: LinkageExternal = {
   structures: [
     {
       type: 'rotary',
@@ -140,7 +136,7 @@ canvas.onmouseup = (event: MouseEvent) => {
   const result = reduce(addLinkState, action, linkage, vars);
   addLinkState = result.state;
   if (result.effect) {
-    linkage = doEffectInternal(result.effect, linkage, vars);
+    linkage = doEffect(result.effect, linkage, vars);
     pointMap = buildPointMap(linkage);
     vars = calcLinkageInternal(linkage, theta);
   }

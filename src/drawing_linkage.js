@@ -55,7 +55,7 @@ export function drawStuff(
   bigAxis: number,
   linkage: LinkageInternal,
   vars: {[r]: number},
-  path: Lines,
+  paths: Array<?Lines>,
   downPoint: ?Point,
   hoverPoint: ?Point
 ) {
@@ -64,8 +64,17 @@ export function drawStuff(
   ctx.strokeStyle = 'black';
   drawLinkage(ctx, linkage, vars);
 
-  ctx.strokeStyle = 'teal';
-  drawLines(ctx, path);
+  ctx.strokeStyle = 'lightGray';
+  for (let i = 1; i < paths.length; i++) {
+    if (paths[i] != null) {
+      drawLines(ctx, paths[i]);
+    }
+  }
+
+  if (paths[0] != null) {
+    ctx.strokeStyle = 'teal';
+    drawLines(ctx, paths[0]);
+  }
 
   ctx.fillStyle = 'red';
   if (downPoint) {

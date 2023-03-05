@@ -10,6 +10,7 @@ import {
   internalize,
   calcLinkageInternal,
   calcPathInternal,
+  refToPRef,
 } from './linkage';
 import {
   buildPointMap,
@@ -77,12 +78,13 @@ continuallyResize(ctx, canvas);
 const pointThreshold = ctx.lineWidth * 2;
 const [_smallAxis, bigAxis] = getAxis(canvas);
 
-const TRACE_POINT_REF = '4';
-
 // mutable state
+let tracePointRef = '4';
 let linkage = internalize(fourBarCoupler);
 let pointMap = buildPointMap(linkage);
-let path = calcPathInternal(linkage, TRACE_POINT_REF);
+let path = calcPathInternal(linkage, tracePointRef);
+let hoverTraceRef = null;
+let hoverPath = null;
 let theta = 3.7;
 let vars = calcLinkageInternal(linkage, theta);
 let paused = false;
@@ -102,6 +104,9 @@ window.onkeydown = (event: KeyboardEvent) => {
     }
   } else if (event.key === 'Escape') {
     addLinkState = reduce(addLinkState, {t: 'esc'}, linkage, vars).state;
+  } else if (event.key === 't' && mouseHover != null && hoverPath != null) {
+    path = hoverPath;
+    tracePointRef = refToPRef(mouseHover[0]);
   }
 };
 
@@ -147,7 +152,20 @@ canvas.onmousemove = (event: MouseEvent) => {
   mousePos = getMousePos(event, ctx);
   if (!mouseDown) {
     const keys = getClickablePointkeys(paused, pointMap, linkage.initialVars);
-    mouseHover = getNearestPoint(mousePos, keys, vars, pointThreshold);
+    const newMouseHover = getNearestPoint(mousePos, keys, vars, pointThreshold);
+    if (
+      newMouseHover != null &&
+      (mouseHover == null || newMouseHover[0] != mouseHover[0]) &&
+      linkage.initialVars[newMouseHover[0]] == null &&
+refToPRef(newMouseHover[0]) !== tracePointRef
+    ) {
+      hoverTraceRef = refToPRef(newMouseHover[0]);
+      hoverPath = calcPathInternal(linkage, hoverTraceRef);
+    } else if (newMouseHover == null) {
+      hoverPath = null;
+      hoverTraceRef = null;
+    }
+    mouseHover = newMouseHover;
     return;
   }
   dragging = true;
@@ -158,12 +176,15 @@ canvas.onmousemove = (event: MouseEvent) => {
     linkage,
     theta,
     vars,
-    TRACE_POINT_REF
+    tracePointRef
   );
   if (result) {
     linkage.initialVars = result.vars;
     theta = result.theta;
     path = result.path;
+    if (hoverTraceRef != null) {
+      hoverPath = calcPathInternal(linkage, hoverTraceRef);
+    }
   }
 };
 
@@ -182,7 +203,7 @@ function draw() {
     bigAxis,
     linkage,
     vars,
-    path,
+    [path, hoverPath],
     mouseDown && [vars[mouseDown[0]], vars[mouseDown[1]]],
     mouseHover && [vars[mouseHover[0]], vars[mouseHover[1]]]
   );

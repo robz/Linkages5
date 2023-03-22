@@ -4,7 +4,7 @@
 [x] change trace
 [x] remove point
 [x] add rotary
-[ ] set phase
+[x] set phase
 [ ] delete rotary
 [ ] random optimize
 [ ] select link

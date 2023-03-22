@@ -12,7 +12,7 @@ export type r = string;
 
 type RotaryStructure = {
   type: 'rotary',
-  input: {lr: r, x0r: r, y0r: r},
+  input: {lr: r, x0r: r, y0r: r, fr: r},
   output: {x1r: r, y1r: r},
 };
 
@@ -56,14 +56,16 @@ function getMaxN(varNames: Array<r>, type: string): number {
 
 export function makeRefCounters(
   varNames: Array<r>
-): {getXR: () => r, getYR: () => r, getLR: () => r} {
+): {getXR: () => r, getYR: () => r, getLR: () => r, getFR: () => r} {
   let ln = 1 + getMaxN(varNames, 'l');
   let xn = 1 + getMaxN(varNames, 'x');
   let yn = 1 + getMaxN(varNames, 'y');
+  let fn = 1 + getMaxN(varNames, 'f');
   return {
     getXR: () => `x${xn++}`,
     getYR: () => `y${yn++}`,
     getLR: () => `l${ln++}`,
+    getFR: () => `f${fn++}`,
   };
 }
 
@@ -193,6 +195,27 @@ function getVarNamesInternal(linkage: LinkageInternal): Array<r> {
   return Array.from(set);
 }
 
+function calcRotary(
+  structure: RotaryStructure,
+  vars: {[r]: number},
+  initialVars: ?{[r]: number},
+  theta: number
+): void {
+  const {
+    input: {x0r, y0r, lr, fr},
+    output: {x1r, y1r},
+  } = structure;
+  const {[x0r]: x0, [y0r]: y0, [lr]: l0, [fr]: phase} = vars;
+  vars[x1r] = l0 * cos(theta + phase) + x0;
+  vars[y1r] = l0 * sin(theta + phase) + y0;
+  if (initialVars != null) {
+    initialVars[x0r] = x0;
+    initialVars[y0r] = y0;
+    initialVars[lr] = l0;
+    initialVars[fr] = phase;
+  }
+}
+
 export function internalize(ext: LinkageExternal): LinkageInternal {
   const theta = 0;
   const vars = {...ext.initialVars};
@@ -204,19 +227,8 @@ export function internalize(ext: LinkageExternal): LinkageInternal {
   for (const structure of ext.structures) {
     switch (structure.type) {
       case 'rotary': {
-        const {
-          input: {x0r, y0r, lr},
-          output: {x1r, y1r},
-        } = structure;
-        const {[x0r]: x0, [y0r]: y0, [lr]: l0} = vars;
-        vars[x1r] = l0 * cos(theta) + x0;
-        vars[y1r] = l0 * sin(theta) + y0;
-
+        calcRotary(structure, vars, initialVars, theta);
         structures.push(structure);
-
-        initialVars[x0r] = x0;
-        initialVars[y0r] = y0;
-        initialVars[lr] = l0;
         break;
       }
       case 'hinge': {
@@ -274,19 +286,8 @@ export function externalize(intern: LinkageInternal): LinkageExternal {
   for (const structure of intern.structures) {
     switch (structure.type) {
       case 'rotary': {
-        const {
-          input: {x0r, y0r, lr},
-          output: {x1r, y1r},
-        } = structure;
-        const {[x0r]: x0, [y0r]: y0, [lr]: l0} = vars;
-        vars[x1r] = l0 * cos(theta) + x0;
-        vars[y1r] = l0 * sin(theta) + y0;
-
+        calcRotary(structure, vars, initialVars, theta);
         structures.push(structure);
-
-        initialVars[x0r] = x0;
-        initialVars[y0r] = y0;
-        initialVars[lr] = l0;
         break;
       }
       case 'hinge': {
@@ -340,13 +341,7 @@ export function calcLinkageInternal(
   for (const structure of linkage.structures) {
     switch (structure.type) {
       case 'rotary': {
-        const {
-          input: {x0r, y0r, lr},
-          output: {x1r, y1r},
-        } = structure;
-        const {[x0r]: x0, [y0r]: y0, [lr]: l0} = vars;
-        vars[x1r] = l0 * cos(theta) + x0;
-        vars[y1r] = l0 * sin(theta) + y0;
+        calcRotary(structure, vars, null, theta);
         break;
       }
 

@@ -3,7 +3,7 @@
 import type {Point} from './drawing';
 import type {LinkageInternal, r} from './linkage';
 
-import {drawLines} from './drawing';
+import {drawLines, strokeCircle} from './drawing';
 import {euclid} from './geometry';
 import {
   calcHingeFromPoints,
@@ -19,7 +19,8 @@ type State =
   | {t: 'gg', p0: Point, p1: Point} // Clicked the ground twice
   | {t: 'p', p0r: PointRef} // Selected a point
   | {t: 'pp', p0r: PointRef, p1r: PointRef} // Selected two points
-  | {t: 'pg', p0r: PointRef, p1: Point}; // point + ground
+  | {t: 'pg', p0r: PointRef, p1: Point} // point + ground
+  | {t: 'r'}; // rotary
 
 type Action = {t: 'esc'} | {t: 'g', p0: Point} | {t: 'p', p0r: PointRef};
 // TODO: allow clicking on bars
@@ -29,9 +30,13 @@ type SideEffect =
   // Add a hinge between to points
   | {t: 'ppg', p0r: PointRef, p1r: PointRef, p2: Point}
   // Add a hinge to the ground
-  | {t: 'pgg', p0r: PointRef, p1: Point, p2: Point};
+  | {t: 'pgg', p0r: PointRef, p1: Point, p2: Point}
+  // Add a rotatry to the ground
+  | {t: 'r', p: Point};
 
 export const INIT_STATE: State = {t: 'none'};
+
+const DEFAULT_ROTARY_LEN = 0.25;
 
 export function getActionFromMouseUp(p0: Point, p0r: ?PointRef): Action {
   return p0r == null ? {t: 'g', p0} : {t: 'p', p0r};
@@ -42,7 +47,7 @@ export function doEffect(
   {structures, initialVars}: LinkageInternal,
   vars: {[r]: number}
 ): LinkageInternal {
-  const {getXR, getYR, getLR} = makeRefCounters(Object.keys(vars));
+  const {getXR, getYR, getLR, getFR} = makeRefCounters(Object.keys(vars));
 
   const l2tr = getLR();
 
@@ -112,6 +117,32 @@ export function doEffect(
       ];
       break;
     }
+    case 'r':
+      console.log('hi???');
+      const {
+        p: [x0, y0],
+      } = effect;
+      const x0r = getXR();
+      const y0r = getYR();
+      const x1r = getXR();
+      const y1r = getYR();
+      const fr = getFR();
+      initialVars = {
+        ...initialVars,
+        [x0r]: x0,
+        [y0r]: y0,
+        [l2tr]: DEFAULT_ROTARY_LEN,
+        [fr]: 0,
+      };
+      structures = [
+        ...structures,
+        {
+          type: 'rotary',
+          input: {lr: l2tr, x0r, y0r, fr},
+          output: {x1r, y1r},
+        },
+      ];
+      break;
   }
 
   return {structures, initialVars};
@@ -148,6 +179,14 @@ export function reduce(
   switch (state.t) {
     case 'none':
       return {state: action};
+    case 'r':
+      switch (action.t) {
+        case 'g':
+          return {state: INIT_STATE, effect: {t: 'r', p: action.p0}};
+        case 'p':
+          return {state};
+      }
+      break;
     case 'g':
       switch (action.t) {
         case 'g':
@@ -218,11 +257,21 @@ export function reduce(
 export function drawPreview(
   state: State,
   mousePos: Point,
+  theta: number,
   ctx: CanvasRenderingContext2D,
   vars: {[r]: number}
 ) {
   let lines = [];
+  ctx.strokeStyle = 'pink';
   switch (state.t) {
+    case 'r': {
+      const [x0, y0] = mousePos;
+      const x1 = x0 + DEFAULT_ROTARY_LEN * Math.cos(theta);
+      const y1 = y0 + DEFAULT_ROTARY_LEN * Math.sin(theta);
+      lines = [mousePos, [x1, y1]];
+      strokeCircle(ctx, x0, y0, DEFAULT_ROTARY_LEN);
+      break;
+    }
     case 'p': {
       const {
         p0r: [x0r, y0r],
@@ -255,6 +304,5 @@ export function drawPreview(
       break;
     }
   }
-  ctx.strokeStyle = 'pink';
   drawLines(ctx, lines);
 }

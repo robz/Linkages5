@@ -10,3 +10,7 @@
   display: block;
   margin: 4px;
 }
+
+#add-rotary {
+  display: inline;
+}

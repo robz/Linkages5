@@ -33,7 +33,7 @@ const fourBarCoupler: LinkageExternal = {
   structures: [
     {
       type: 'rotary',
-      input: {lr: 'l0', x0r: 'x0', y0r: 'y0'},
+      input: {lr: 'l0', x0r: 'x0', y0r: 'y0', fr: 'f0'},
       output: {x1r: 'x1', y1r: 'y1'},
     },
     {
@@ -71,6 +71,7 @@ const fourBarCoupler: LinkageExternal = {
     y0: 0.0,
     x3: 0.3,
     y3: 0.0,
+    f0: 0.0,
   },
 };
 
@@ -114,7 +115,6 @@ window.onkeydown = (event: KeyboardEvent) => {
     if (success) {
       // regenerate the point map
       pointMap = buildPointMap(linkage);
-      console.log('success', hoverTraceRef, tracePointRef);
       // remove traces if necessary
       if (hoverTraceRef === tracePointRef) {
         tracePointRef = null;
@@ -139,13 +139,16 @@ canvas.onmousedown = (event: MouseEvent) => {
 };
 
 canvas.onmouseup = (event: MouseEvent) => {
+  const wasDragging = dragging;
+  dragging = false;
   mouseDown = null;
-  if (dragging) {
+  if (wasDragging) {
     // don't allow adding links while moving points
     return;
   }
-  if (!paused) {
+  if (!paused && addLinkState.t !== 'r') {
     // don't allow adding links unless paused
+    // unless adding rotaries
     return;
   }
 
@@ -161,7 +164,6 @@ canvas.onmouseup = (event: MouseEvent) => {
     pointMap = buildPointMap(linkage);
     vars = calcLinkageInternal(linkage, theta);
   }
-  console.log(addLinkState);
 };
 
 canvas.onmousemove = (event: MouseEvent) => {
@@ -201,12 +203,17 @@ canvas.onmousemove = (event: MouseEvent) => {
   );
   if (result) {
     linkage.initialVars = result.vars;
-    theta = result.theta;
     path = result.path;
     if (hoverTraceRef != null) {
       hoverPath = calcPathInternal(linkage, hoverTraceRef);
     }
   }
+};
+
+const addRotaryLink = document.getElementById('add-rotary');
+// $FlowFixMe
+addRotaryLink.onclick = () => {
+  addLinkState = {t: 'r'};
 };
 
 function draw() {
@@ -229,7 +236,7 @@ function draw() {
     mouseHover && [vars[mouseHover[0]], vars[mouseHover[1]]]
   );
   if (mousePos != null) {
-    drawPreview(addLinkState, mousePos, ctx, vars);
+    drawPreview(addLinkState, mousePos, theta, ctx, vars);
   }
 
   if (!paused) {

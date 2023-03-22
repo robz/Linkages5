@@ -68,20 +68,19 @@ export function movePoint(
   theta: number,
   vars: {[r]: number},
   tracePr: ?r
-): ?{vars: {[r]: number}, theta: number, path: Lines} {
+): ?{vars: {[r]: number}, path: Lines} {
   const [xr, yr] = pointKey;
   const [x, y] = newPoint;
 
   const {structures, initialVars} = linkage;
   const newInitialVars = {...initialVars};
-  let newTheta = theta;
 
   for (const i of pointMap[xr]) {
     const structure = structures[i];
     switch (structure.type) {
       case 'rotary': {
         const {
-          input: {x0r, y0r, lr},
+          input: {x0r, y0r, lr, fr},
           output: {x1r, y1r},
         } = structure;
         const {[x0r]: x0, [y0r]: y0, [x1r]: x1, [y1r]: y1} = vars;
@@ -95,11 +94,13 @@ export function movePoint(
             newInitialVars[yr] = y;
           } else {
             newInitialVars[lr] = euclid(newPoint, p1);
-            newTheta = Math.atan2(y1 - y, x1 - x);
+            const newTheta = Math.atan2(y1 - y, x1 - x);
+            newInitialVars[fr] = newTheta - theta;
           }
         } else if (x1r === xr) {
           newInitialVars[lr] = euclid(p0, newPoint);
-          newTheta = Math.atan2(y - y0, x - x0);
+          const newTheta = Math.atan2(y - y0, x - x0);
+          newInitialVars[fr] = newTheta - theta;
         }
 
         break;
@@ -161,7 +162,7 @@ export function movePoint(
       {structures, initialVars: newInitialVars},
       tracePoint
     );
-    return {vars: newInitialVars, theta: newTheta, path};
+    return {vars: newInitialVars, path};
   } catch {
     return null;
   }

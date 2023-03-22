@@ -27,6 +27,17 @@ export function fillCircle(
   ctx.fill();
 }
 
+export function strokeCircle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number
+) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, PI * 2);
+  ctx.stroke();
+}
+
 export function getCanvas(id: string): HTMLCanvasElement {
   const canvas = document.getElementById(id);
   if (!(canvas instanceof HTMLCanvasElement) || canvas == null) {
@@ -71,7 +82,7 @@ export function getMousePos(
   ctx: CanvasRenderingContext2D
 ): [number, number] {
   const {clientX, clientY} = event;
-  // $FlowFixMe
+  // $FlowFixMe[prop-missing] Flow doesn't know about getTransform
   const {a, b, c, d, e, f} = ctx.getTransform();
   return [(clientX - e) / a, (clientY - f) / d];
 }

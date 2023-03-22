@@ -17,6 +17,7 @@ import {
   movePoint,
   getClickablePointkeys,
   getNearestPoint,
+  tryRemovePoint,
 } from './move_point';
 import {
   INIT_STATE,
@@ -25,6 +26,7 @@ import {
   drawPreview,
   doEffect,
 } from './add_link';
+import type {Lines} from './drawing';
 
 // linkage
 const fourBarCoupler: LinkageExternal = {
@@ -79,10 +81,10 @@ const pointThreshold = ctx.lineWidth * 2;
 const [_smallAxis, bigAxis] = getAxis(canvas);
 
 // mutable state
-let tracePointRef = '4';
+let tracePointRef: ?string = '4';
 let linkage = internalize(fourBarCoupler);
 let pointMap = buildPointMap(linkage);
-let path = calcPathInternal(linkage, tracePointRef);
+let path: ?Lines = calcPathInternal(linkage, tracePointRef);
 let hoverTraceRef = null;
 let hoverPath = null;
 let theta = 3.7;
@@ -107,6 +109,20 @@ window.onkeydown = (event: KeyboardEvent) => {
   } else if (event.key === 't' && mouseHover != null && hoverPath != null) {
     path = hoverPath;
     tracePointRef = refToPRef(mouseHover[0]);
+  } else if (event.key === 'd' && mouseHover != null) {
+    const success = tryRemovePoint(mouseHover, pointMap, linkage);
+    if (success) {
+      // regenerate the point map
+      pointMap = buildPointMap(linkage);
+      console.log('success', hoverTraceRef, tracePointRef);
+      // remove traces if necessary
+      if (hoverTraceRef === tracePointRef) {
+        tracePointRef = null;
+        path = null;
+      }
+      hoverTraceRef = null;
+      hoverPath = null;
+    }
   }
 };
 
@@ -154,13 +170,18 @@ canvas.onmousemove = (event: MouseEvent) => {
     const keys = getClickablePointkeys(paused, pointMap, linkage.initialVars);
     const newMouseHover = getNearestPoint(mousePos, keys, vars, pointThreshold);
     if (
+      // hovering over a point
       newMouseHover != null &&
+      // hovering over a different point than before
       (mouseHover == null || newMouseHover[0] != mouseHover[0]) &&
-      linkage.initialVars[newMouseHover[0]] == null &&
-refToPRef(newMouseHover[0]) !== tracePointRef
+      // the point isn't on ground
+      linkage.initialVars[newMouseHover[0]] == null
     ) {
       hoverTraceRef = refToPRef(newMouseHover[0]);
-      hoverPath = calcPathInternal(linkage, hoverTraceRef);
+      // the point isn't one we're already tracing
+      if (hoverTraceRef !== tracePointRef) {
+        hoverPath = calcPathInternal(linkage, hoverTraceRef);
+      }
     } else if (newMouseHover == null) {
       hoverPath = null;
       hoverTraceRef = null;

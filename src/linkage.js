@@ -32,11 +32,7 @@ export type LinkageExternal = {
 // Internal linkage spec, which reparameterizes hinges
 export type LinkageInternal = {
   structures: Array<
-    | {
-        type: 'rotary',
-        input: {lr: r, x0r: r, y0r: r},
-        output: {x1r: r, y1r: r},
-      }
+    | RotaryStructure
     | {
         type: 'hinge',
         input: {xtr: r, ytr: r, l2tr: r, x0r: r, y0r: r, x1r: r, y1r: r},
@@ -380,9 +376,10 @@ export function calcLinkageInternal(
 
 export function calcPathInternal(
   linkage: LinkageInternal,
-  pr: string = '0',
+  pr: ?string,
   n: number = 125
 ): Lines {
+  pr = pr ?? '0';
   const path = [];
   const [xr, yr] = prefToRefs(pr);
   for (let i = 0; i < n; i++) {

@@ -67,7 +67,7 @@ export function movePoint(
   linkage: LinkageInternal,
   theta: number,
   vars: {[r]: number},
-  tracePr: r
+  tracePr: ?r
 ): ?{vars: {[r]: number}, theta: number, path: Lines} {
   const [xr, yr] = pointKey;
   const [x, y] = newPoint;
@@ -156,9 +156,10 @@ export function movePoint(
     }
   }
   try {
+    const tracePoint = tracePr ?? refToPRef(linkage.structures[0].input.x0r);
     const path = calcPathInternal(
       {structures, initialVars: newInitialVars},
-      tracePr
+      tracePoint
     );
     return {vars: newInitialVars, theta: newTheta, path};
   } catch {
@@ -190,4 +191,55 @@ export function getNearestPoint(
       return [xr, yr];
     }
   }
+}
+
+export function tryRemovePoint(
+  p: [r, r],
+  pointMap: PointMap,
+  linkage: LinkageInternal
+): boolean {
+  const [xr, yr] = p;
+  const structureIndicies = pointMap[xr];
+  if (structureIndicies.length !== 1) {
+    // ønly remove if there's one structure connected to the point
+    return false;
+  }
+
+  const structureIndex = structureIndicies[0];
+  const structure = linkage.structures[structureIndex];
+  if (structure.type !== 'hinge') {
+    // only remove hinges
+    return false;
+  }
+
+  const {
+    input: {x0r, y0r, x1r, y1r, l2tr, xtr, ytr},
+    output: {x2r, y2r},
+  } = structure;
+  if (x2r !== xr || y2r !== yr) {
+    // only remove if the middle point is selected
+    return false;
+  }
+
+  // Remove the structure from the structure list
+  linkage.structures.splice(structureIndex, 1);
+
+  // Cleanup any initial vars
+  delete linkage.initialVars[l2tr];
+  delete linkage.initialVars[xtr];
+  delete linkage.initialVars[ytr];
+  for (const [xr, yr] of [
+    [x0r, y0r],
+    [x1r, y1r],
+  ]) {
+    // If there's only one structure using this point,
+    // then it's safe to delete, because that
+    // structure is the one we're deleting
+    if (pointMap[xr].length === 1) {
+      delete linkage.initialVars[xr];
+      delete linkage.initialVars[yr];
+    }
+  }
+
+  return true;
 }

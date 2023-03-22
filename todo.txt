@@ -1,0 +1,14 @@
+[x] compute linkage
+[x] move point
+[x] add hinge
+[x] change trace
+[x] remove point
+[x] add rotary
+[ ] set phase
+[ ] delete rotary
+[ ] random optimize
+[ ] select link
+[ ] move canvas
+[ ] zoom canvas
+[ ] change speed
+[ ] set link length

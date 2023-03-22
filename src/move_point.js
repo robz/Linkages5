@@ -50,13 +50,6 @@ export function buildPointMap({structures}: LinkageInternal): PointMap {
       }
     }
   });
-
-  // remove all other structures from rotary points
-  // since we just want the actuator to move in those cases
-  for (const xr of rotaryPoints) {
-    m[xr] = m[xr].filter((i) => structures[i].type === 'rotary');
-  }
-
   return m;
 }
 
@@ -74,6 +67,10 @@ export function movePoint(
 
   const {structures, initialVars} = linkage;
   const newInitialVars = {...initialVars};
+
+  const isEndEffector = pointMap[xr].some(
+    (i) => structures[i].type === 'rotary' && structures[i].output.x1r === xr
+  );
 
   for (const i of pointMap[xr]) {
     const structure = structures[i];
@@ -107,6 +104,10 @@ export function movePoint(
       }
 
       case 'hinge': {
+        if (isEndEffector) {
+          // moving end effectors shouldn't alter hinges
+          continue;
+        }
         const {
           input: {x0r, y0r, x1r, y1r, l2tr, xtr, ytr},
           output: {x2r, y2r},
@@ -208,39 +209,67 @@ export function tryRemovePoint(
 
   const structureIndex = structureIndicies[0];
   const structure = linkage.structures[structureIndex];
-  if (structure.type !== 'hinge') {
-    // only remove hinges
-    return false;
-  }
+  switch (structure.type) {
+    case 'rotary': {
+      const {
+        input: {x0r, y0r, lr, fr},
+        output: {x1r, y1r},
+      } = structure;
+      console.log(x1r, pointMap, pointMap[x1r]);
 
-  const {
-    input: {x0r, y0r, x1r, y1r, l2tr, xtr, ytr},
-    output: {x2r, y2r},
-  } = structure;
-  if (x2r !== xr || y2r !== yr) {
-    // only remove if the middle point is selected
-    return false;
-  }
+      if (pointMap[x1r].length > 1) {
+        // only remove if nothing is connected to the end effector
+        return false;
+      }
 
-  // Remove the structure from the structure list
-  linkage.structures.splice(structureIndex, 1);
+      // Remove the structure from the structure list
+      linkage.structures.splice(structureIndex, 1);
 
-  // Cleanup any initial vars
-  delete linkage.initialVars[l2tr];
-  delete linkage.initialVars[xtr];
-  delete linkage.initialVars[ytr];
-  for (const [xr, yr] of [
-    [x0r, y0r],
-    [x1r, y1r],
-  ]) {
-    // If there's only one structure using this point,
-    // then it's safe to delete, because that
-    // structure is the one we're deleting
-    if (pointMap[xr].length === 1) {
-      delete linkage.initialVars[xr];
-      delete linkage.initialVars[yr];
+      // Cleanup any initial vars
+      delete linkage.initialVars[lr];
+      delete linkage.initialVars[fr];
+
+      // If there's only one structure using the ground,
+      // then it's safe to delete, because that
+      // structure is the one we're deleting
+      if (pointMap[x0r].length === 1) {
+        delete linkage.initialVars[x0r];
+        delete linkage.initialVars[y0r];
+      }
+
+      return true;
+    }
+    case 'hinge': {
+      const {
+        input: {x0r, y0r, x1r, y1r, l2tr, xtr, ytr},
+        output: {x2r, y2r},
+      } = structure;
+      if (x2r !== xr || y2r !== yr) {
+        // only remove if the middle point is selected
+        return false;
+      }
+
+      // Remove the structure from the structure list
+      linkage.structures.splice(structureIndex, 1);
+
+      // Cleanup any initial vars
+      delete linkage.initialVars[l2tr];
+      delete linkage.initialVars[xtr];
+      delete linkage.initialVars[ytr];
+      for (const [xr, yr] of [
+        [x0r, y0r],
+        [x1r, y1r],
+      ]) {
+        // If there's only one structure using this point,
+        // then it's safe to delete, because that
+        // structure is the one we're deleting
+        if (pointMap[xr].length === 1) {
+          delete linkage.initialVars[xr];
+          delete linkage.initialVars[yr];
+        }
+      }
+
+      return true;
     }
   }
-
-  return true;
 }

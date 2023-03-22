@@ -5,10 +5,10 @@
 [x] remove point
 [x] add rotary
 [x] set phase
-[ ] delete rotary
+[x] delete rotary
 [ ] random optimize
-[ ] select link
 [ ] move canvas
 [ ] zoom canvas
 [ ] change speed
+[ ] select link
 [ ] set link length
